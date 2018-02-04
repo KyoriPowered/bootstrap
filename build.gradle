@@ -1,0 +1,93 @@
+plugins {
+  id 'java'
+  id 'maven'
+  id 'signing'
+  id 'net.minecrell.licenser' version '0.3'
+}
+
+group 'net.kyori'
+version '1.0.0-SNAPSHOT'
+
+sourceCompatibility = 9
+targetCompatibility = 9
+
+license {
+  header project.file('header.txt')
+  include '**/*.java'
+  newLine false
+}
+
+task javadocJar(type: Jar) {
+  classifier 'javadoc'
+  from javadoc
+}
+
+task sourcesJar(type: Jar) {
+  classifier 'sources'
+  from sourceSets.main.allSource
+}
+
+artifacts {
+  archives javadocJar
+  archives sourcesJar
+}
+
+signing {
+  required { !project.version.endsWith('-SNAPSHOT') && gradle.taskGraph.hasTask(':uploadArchives') && project.hasProperty('signing.keyId') }
+  sign configurations.archives
+}
+
+repositories {
+  mavenLocal()
+  mavenCentral()
+}
+
+if(project.hasProperty('sonatypeUsername') && project.hasProperty('sonatypePassword')) {
+  uploadArchives {
+    enabled = System.getenv('TRAVIS') == null || project.version.endsWith('-SNAPSHOT')
+
+    repositories {
+      mavenDeployer {
+        beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+
+        repository(url: 'https://oss.sonatype.org/service/local/staging/deploy/maven2/') {
+          authentication(userName: sonatypeUsername, password: sonatypePassword)
+        }
+
+        snapshotRepository(url: 'https://oss.sonatype.org/content/repositories/snapshots/') {
+          authentication(userName: sonatypeUsername, password: sonatypePassword)
+        }
+
+        pom.project {
+          description 'An application bootstrapper.'
+          name project.name
+          url 'https://github.com/KyoriPowered/bootstrap/'
+
+          developers {
+            developer {
+              name 'kashike'
+            }
+          }
+
+          issueManagement {
+            system 'GitHub Issues'
+            url 'https://github.com/KyoriPowered/bootstrap/issues'
+          }
+
+          licenses {
+            license {
+              name 'MIT License'
+              url 'https://opensource.org/licenses/MIT'
+            }
+          }
+
+          scm {
+            connection 'scm:git@github.com:KyoriPowered/bootstrap.git'
+            developerConnection 'scm:git@github.com:KyoriPowered/bootstrap.git'
+            url 'https://github.com/KyoriPowered/bootstrap/'
+          }
+        }
+      }
+    }
+  }
+}
