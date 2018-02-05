@@ -58,6 +58,10 @@ public final class Bootstrap {
    */
   private static final String PATH_ELEMENT_NAME = "path";
   /**
+   * The name of the optional attribute that contains the minimum depth a path should be searched.
+   */
+  private static final String PATH_MIN_DEPTH_ATTRIBUTE_NAME = "min-depth";
+  /**
    * The name of the optional attribute that contains the maximum depth a path should be searched.
    */
   private static final String PATH_MAX_DEPTH_ATTRIBUTE_NAME = "max-depth";
@@ -69,6 +73,10 @@ public final class Bootstrap {
    * The name of the attribute that contains our target class.
    */
   private static final String CLASS_ATTRIBUTE_NAME = "class";
+  /**
+   * The default minimum depth value.
+   */
+  private static final int DEFAULT_MIN_DEPTH = 1;
   /**
    * The default maximum depth value.
    */
@@ -117,11 +125,9 @@ public final class Bootstrap {
           final Node node = paths.item(i);
           if(node.getNodeType() == Node.ELEMENT_NODE) {
             final Element path = (Element) node;
-            if(path.hasAttribute(PATH_MAX_DEPTH_ATTRIBUTE_NAME)) {
-              bootstrap.search(Paths.get(path.getTextContent()), Integer.parseInt(path.getAttribute(PATH_MAX_DEPTH_ATTRIBUTE_NAME)));
-            } else {
-              bootstrap.search(Paths.get(path.getTextContent()));
-            }
+            final int minDepth = path.hasAttribute(PATH_MIN_DEPTH_ATTRIBUTE_NAME) ? Integer.parseInt(path.getAttribute(PATH_MIN_DEPTH_ATTRIBUTE_NAME)) : DEFAULT_MIN_DEPTH;
+            final int maxDepth = path.hasAttribute(PATH_MAX_DEPTH_ATTRIBUTE_NAME) ? Integer.parseInt(path.getAttribute(PATH_MAX_DEPTH_ATTRIBUTE_NAME)) : DEFAULT_MAX_DEPTH;
+            bootstrap.search(Paths.get(path.getTextContent()), minDepth, maxDepth);
           }
         }
       },
@@ -155,7 +161,7 @@ public final class Bootstrap {
     }
   }
 
-  Bootstrap(final String moduleName, final String className, final String[] args) {
+  private Bootstrap(final String moduleName, final String className, final String[] args) {
     this.moduleName = moduleName;
     this.className = className;
     this.args = args;
@@ -182,19 +188,20 @@ public final class Bootstrap {
   public void search(final Path path, final Set<FileVisitOption> options) throws IOException {
     requireNonNull(path, "path");
     requireNonNull(options, "options");
-    this.search(path, options, DEFAULT_MAX_DEPTH);
+    this.search(path, options, DEFAULT_MIN_DEPTH, DEFAULT_MAX_DEPTH);
   }
 
   /**
    * Search for directories containing JARs that modules can be loaded from.
    *
    * @param path the path to search in
+   * @param minDepth the minimum depth to search
    * @param maxDepth the maximum depth to search
    * @throws IOException if an exception is encountered while walking the path
    */
-  public void search(final Path path, final int maxDepth) throws IOException {
+  public void search(final Path path, final int minDepth, final int maxDepth) throws IOException {
     requireNonNull(path, "path");
-    this.search(path, Set.of(), maxDepth);
+    this.search(path, Set.of(), minDepth, maxDepth);
   }
 
   /**
@@ -202,10 +209,11 @@ public final class Bootstrap {
    *
    * @param path the path to search in
    * @param options the file visit options
+   * @param minDepth the minimum depth to search
    * @param maxDepth the maximum depth to search
    * @throws IOException if an exception is encountered while walking the path
    */
-  public void search(final Path path, final Set<FileVisitOption> options, final int maxDepth) throws IOException {
+  public void search(final Path path, final Set<FileVisitOption> options, final int minDepth, final int maxDepth) throws IOException {
     requireNonNull(path, "path");
     requireNonNull(options, "options");
     Files.walkFileTree(path, options, maxDepth, new FileVisitor<>() {
@@ -216,8 +224,10 @@ public final class Bootstrap {
 
       @Override
       public FileVisitResult visitFile(final Path file, final BasicFileAttributes attributes) {
-        if(JAR_MATCHER.matches(file)) {
-          Bootstrap.this.paths.add(file.getParent());
+        if(this.countDepth(path, file.getParent()) >= minDepth) {
+          if(JAR_MATCHER.matches(file)) {
+            Bootstrap.this.paths.add(file.getParent());
+          }
         }
         return FileVisitResult.CONTINUE;
       }
@@ -230,6 +240,10 @@ public final class Bootstrap {
       @Override
       public FileVisitResult postVisitDirectory(final Path directory, final IOException exception) {
         return FileVisitResult.CONTINUE;
+      }
+
+      private int countDepth(final Path start, final Path current) {
+        return start.relativize(current).getNameCount();
       }
     });
   }
