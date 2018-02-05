@@ -40,7 +40,10 @@ final class Modules {
 
   private static ModuleLayer createLayer(final ModuleLayer parent, final Set<Path> paths) {
     final ModuleFinder finder = ModuleFinder.of(paths.toArray(new Path[paths.size()]));
-    final Set<String> modules = finder.findAll().stream().map(reference -> reference.descriptor().name()).collect(Collectors.toSet());
+    final Set<String> modules = finder.findAll().stream()
+      .map(reference -> reference.descriptor().name())
+      .filter(name -> !parent.findModule(name).isPresent())
+      .collect(Collectors.toSet());
     final Configuration configuration = parent.configuration().resolve(finder, ModuleFinder.of(), modules);
     final ClassLoader loader = ClassLoader.getSystemClassLoader();
     return parent.defineModulesWithOneLoader(configuration, loader);

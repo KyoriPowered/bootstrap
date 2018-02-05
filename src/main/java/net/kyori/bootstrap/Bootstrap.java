@@ -23,6 +23,11 @@
  */
 package net.kyori.bootstrap;
 
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
+
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -33,13 +38,37 @@ import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
+import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashSet;
 import java.util.Set;
 
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+
 import static java.util.Objects.requireNonNull;
 
 public final class Bootstrap {
+  /**
+   * The name of the configuration file.
+   */
+  private static final String CONFIGURATION_FILE_NAME = "bootstrap.xml";
+  /**
+   * The name of the element that contains paths we should search in.
+   */
+  private static final String PATH_ELEMENT_NAME = "path";
+  /**
+   * The name of the optional attribute that contains the maximum depth a path should be searched.
+   */
+  private static final String PATH_MAX_DEPTH_ATTRIBUTE_NAME = "max-depth";
+  /**
+   * The name of the attribute that contains our target module.
+   */
+  private static final String MODULE_ATTRIBUTE_NAME = "module";
+  /**
+   * The name of the attribute that contains our target class.
+   */
+  private static final String CLASS_ATTRIBUTE_NAME = "class";
   /**
    * The default maximum depth value.
    */
@@ -70,6 +99,39 @@ public final class Bootstrap {
   private final String[] args;
 
   /**
+   * Application entry point.
+   *
+   * @param args the arguments
+   */
+  public static void main(final String[] args) throws BootstrapException {
+    final Element document;
+    try {
+      document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(Paths.get(CONFIGURATION_FILE_NAME).toFile()).getDocumentElement();
+    } catch(final IOException | ParserConfigurationException | SAXException e) {
+      throw new BootstrapException("Encountered an exception while parsing bootstrap configuration file ()", e);
+    }
+    boot(
+      bootstrap -> {
+        final NodeList paths = document.getElementsByTagName(PATH_ELEMENT_NAME);
+        for(int i = 0, length = paths.getLength(); i < length; i++) {
+          final Node node = paths.item(i);
+          if(node.getNodeType() == Node.ELEMENT_NODE) {
+            final Element path = (Element) node;
+            if(path.hasAttribute(PATH_MAX_DEPTH_ATTRIBUTE_NAME)) {
+              bootstrap.search(Paths.get(path.getTextContent()), Integer.parseInt(path.getAttribute(PATH_MAX_DEPTH_ATTRIBUTE_NAME)));
+            } else {
+              bootstrap.search(Paths.get(path.getTextContent()));
+            }
+          }
+        }
+      },
+      requireString(document.getAttribute(MODULE_ATTRIBUTE_NAME), MODULE_ATTRIBUTE_NAME),
+      requireString(document.getAttribute(CLASS_ATTRIBUTE_NAME), CLASS_ATTRIBUTE_NAME),
+      args
+    );
+  }
+
+  /**
    * Boot.
    *
    * @param consumer a consumer used to configure the bootstrap
@@ -93,7 +155,7 @@ public final class Bootstrap {
     }
   }
 
-  private Bootstrap(final String moduleName, final String className, final String[] args) {
+  Bootstrap(final String moduleName, final String className, final String[] args) {
     this.moduleName = moduleName;
     this.className = className;
     this.args = args;
@@ -180,6 +242,14 @@ public final class Bootstrap {
       .getDeclaredMethod(BOOT_METHOD_NAME, ModuleLayer.class, String[].class);
     method.setAccessible(true);
     method.invoke(null, layer, this.args);
+  }
+
+  private static String requireString(final String string, final String message) {
+    requireNonNull(string, message);
+    if(string.isEmpty()) {
+      throw new IllegalArgumentException(message);
+    }
+    return string;
   }
 
   /**

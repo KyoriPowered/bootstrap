@@ -22,5 +22,7 @@
  * SOFTWARE.
  */
 module net.kyori.bootstrap {
+  requires java.xml;
+
   exports net.kyori.bootstrap;
 }
