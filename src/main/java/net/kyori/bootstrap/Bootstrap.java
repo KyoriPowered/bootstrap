@@ -54,6 +54,14 @@ public final class Bootstrap {
    */
   private static final String CONFIGURATION_FILE_NAME = "bootstrap.xml";
   /**
+   * The name of the attribute that contains our target module.
+   */
+  private static final String MODULE_ATTRIBUTE_NAME = "module";
+  /**
+   * The name of the attribute that contains our target class.
+   */
+  private static final String CLASS_ATTRIBUTE_NAME = "class";
+  /**
    * The name of the element that contains paths we should search in.
    */
   private static final String PATH_ELEMENT_NAME = "path";
@@ -66,13 +74,13 @@ public final class Bootstrap {
    */
   private static final String PATH_MAX_DEPTH_ATTRIBUTE_NAME = "max-depth";
   /**
-   * The name of the attribute that contains our target module.
+   * The name of the element that contains system properties we should set.
    */
-  private static final String MODULE_ATTRIBUTE_NAME = "module";
+  private static final String PROPERTY_ELEMENT_NAME = "property";
   /**
-   * The name of the attribute that contains our target class.
+   * The name of the attribute that contains a property key.
    */
-  private static final String CLASS_ATTRIBUTE_NAME = "class";
+  private static final String PROPERTY_KEY_ATTRIBUTE_NAME = "key";
   /**
    * The default minimum depth value.
    */
@@ -110,6 +118,7 @@ public final class Bootstrap {
    * Application entry point.
    *
    * @param args the arguments
+   * @throws BootstrapException if an exception is encountered while bootstrapping
    */
   public static void main(final String[] args) throws BootstrapException {
     final Element document;
@@ -119,6 +128,8 @@ public final class Bootstrap {
       throw new BootstrapException("Encountered an exception while parsing bootstrap configuration file ()", e);
     }
     boot(
+      requireString(document.getAttribute(MODULE_ATTRIBUTE_NAME), MODULE_ATTRIBUTE_NAME),
+      requireString(document.getAttribute(CLASS_ATTRIBUTE_NAME), CLASS_ATTRIBUTE_NAME),
       bootstrap -> {
         final NodeList paths = document.getElementsByTagName(PATH_ELEMENT_NAME);
         for(int i = 0, length = paths.getLength(); i < length; i++) {
@@ -130,9 +141,18 @@ public final class Bootstrap {
             bootstrap.search(Paths.get(path.getTextContent()), minDepth, maxDepth);
           }
         }
+
+        final NodeList properties = document.getElementsByTagName(PROPERTY_ELEMENT_NAME);
+        for(int i = 0, length = properties.getLength(); i < length; i++) {
+          final Node node = properties.item(i);
+          if(node.getNodeType() == Node.ELEMENT_NODE) {
+            final Element property = (Element) node;
+            final String key = property.getAttribute(PROPERTY_KEY_ATTRIBUTE_NAME);
+            final String value = property.getTextContent();
+            System.setProperty(key, value);
+          }
+        }
       },
-      requireString(document.getAttribute(MODULE_ATTRIBUTE_NAME), MODULE_ATTRIBUTE_NAME),
-      requireString(document.getAttribute(CLASS_ATTRIBUTE_NAME), CLASS_ATTRIBUTE_NAME),
       args
     );
   }
@@ -140,13 +160,13 @@ public final class Bootstrap {
   /**
    * Boot.
    *
-   * @param consumer a consumer used to configure the bootstrap
    * @param moduleName the target module
    * @param className the target class
+   * @param consumer a consumer used to configure the bootstrap
    * @param args the arguments
    * @throws BootstrapException if an exception is encountered while bootstrapping
    */
-  public static void boot(final Consumer consumer, final String moduleName, final String className, final String[] args) throws BootstrapException {
+  public static void boot(final String moduleName, final String className, final Consumer consumer, final String[] args) throws BootstrapException {
     requireNonNull(consumer, "consumer");
     requireNonNull(moduleName, "module name");
     requireNonNull(className, "class name");
