@@ -149,7 +149,9 @@ public final class Bootstrap {
             final Element property = (Element) node;
             final String key = property.getAttribute(PROPERTY_KEY_ATTRIBUTE_NAME);
             final String value = property.getTextContent();
-            System.setProperty(key, value);
+            if(System.getProperty(key) == null) {
+              System.setProperty(key, value);
+            }
           }
         }
       },
