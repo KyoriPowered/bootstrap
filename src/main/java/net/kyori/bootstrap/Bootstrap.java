@@ -121,11 +121,15 @@ public final class Bootstrap {
    * @throws BootstrapException if an exception is encountered while bootstrapping
    */
   public static void main(final String[] args) throws BootstrapException {
+    final Path configurationPath = Paths.get(CONFIGURATION_FILE_NAME);
+    if(Files.notExists(configurationPath)) {
+      throw new BootstrapException("The bootstrap configuration file (" + configurationPath + ") could not be found.");
+    }
     final Element document;
     try {
-      document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(Paths.get(CONFIGURATION_FILE_NAME).toFile()).getDocumentElement();
+      document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(configurationPath.toFile()).getDocumentElement();
     } catch(final IOException | ParserConfigurationException | SAXException e) {
-      throw new BootstrapException("Encountered an exception while parsing bootstrap configuration file ()", e);
+      throw new BootstrapException("Encountered an exception while parsing the bootstrap configuration file (" + configurationPath + '\'', e);
     }
     boot(
       requireString(document.getAttribute(MODULE_ATTRIBUTE_NAME), MODULE_ATTRIBUTE_NAME),
@@ -272,7 +276,6 @@ public final class Bootstrap {
 
   private void boot() throws ClassNotFoundException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
     final ModuleLayer layer = Modules.createLayer(this.paths);
-
     final Method method = layer.findLoader(this.moduleName)
       .loadClass(this.className)
       .getDeclaredMethod(BOOT_METHOD_NAME, ModuleLayer.class, String[].class);

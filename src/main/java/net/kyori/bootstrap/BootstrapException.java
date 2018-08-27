@@ -24,9 +24,13 @@
 package net.kyori.bootstrap;
 
 /**
- * An exception that may be thrown if an exception is encountered while bootstrapping.
+ * An exception that may be thrown if an issue is encountered while bootstrapping.
  */
 public final class BootstrapException extends Exception {
+  BootstrapException(final String message) {
+    super(message);
+  }
+
   BootstrapException(final String message, final Throwable cause) {
     super(message, cause);
   }

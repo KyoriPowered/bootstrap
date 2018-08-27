@@ -39,7 +39,7 @@ final class Modules {
   }
 
   private static ModuleLayer createLayer(final ModuleLayer parent, final Set<Path> paths) {
-    final ModuleFinder finder = ModuleFinder.of(paths.toArray(new Path[paths.size()]));
+    final ModuleFinder finder = ModuleFinder.of(paths.toArray(new Path[0]));
     final Set<String> modules = finder.findAll().stream()
       .map(reference -> reference.descriptor().name())
       .filter(name -> !parent.findModule(name).isPresent())
