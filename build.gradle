@@ -42,6 +42,10 @@ signing {
   sign configurations.archives
 }
 
+jar {
+  manifest.attributes 'Main-Class': 'net.kyori.bootstrap.Bootstrap'
+}
+
 if(project.hasProperty('sonatypeUsername') && project.hasProperty('sonatypePassword')) {
   uploadArchives {
     enabled = System.getenv('TRAVIS') == null || project.version.endsWith('-SNAPSHOT')
